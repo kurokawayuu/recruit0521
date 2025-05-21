@@ -1046,18 +1046,17 @@ function render_job_details_meta_box($post) {
         <textarea id="requirements" name="requirements" rows="4"><?php echo esc_textarea($requirements); ?></textarea>
         <p class="description">必要な資格や経験など</p>
     </div>
-    
+    <div class="job-form-row">
+        <label for="contact_info">仕事内容 <span class="required">*</span></label>
+        <textarea id="contact_info" name="contact_info" rows="4" required><?php echo esc_textarea($contact_info); ?></textarea>
+        <p class="description">電話番号、メールアドレス、応募フォームURLなど</p>
+    </div>
     <div class="job-form-row">
         <label for="application_process">選考プロセス</label>
         <textarea id="application_process" name="application_process" rows="4"><?php echo esc_textarea($application_process); ?></textarea>
         <p class="description">書類選考、面接回数など</p>
     </div>
     
-    <div class="job-form-row">
-        <label for="contact_info">応募方法・連絡先 <span class="required">*</span></label>
-        <textarea id="contact_info" name="contact_info" rows="4" required><?php echo esc_textarea($contact_info); ?></textarea>
-        <p class="description">電話番号、メールアドレス、応募フォームURLなど</p>
-    </div>
     <?php
 }
 
@@ -1077,7 +1076,9 @@ function render_facility_details_meta_box($post) {
     $facility_company = get_post_meta($post->ID, 'facility_company', true);
     $capacity = get_post_meta($post->ID, 'capacity', true);
     $staff_composition = get_post_meta($post->ID, 'staff_composition', true);
-    
+    $company_url = get_post_meta($post->ID, 'company_url', true);
+    $capacity = get_post_meta($post->ID, 'capacity', true);
+    $staff_composition = get_post_meta($post->ID, 'staff_composition', true);
     // フォームを表示
     ?>
     <div class="job-form-row">
@@ -1089,7 +1090,10 @@ function render_facility_details_meta_box($post) {
         <label for="facility_company">運営会社名</label>
         <input type="text" id="facility_company" name="facility_company" value="<?php echo esc_attr($facility_company); ?>">
     </div>
-    
+    <div class="job-form-row">
+        <label for="facility_company">運営会社のWebサイトURL</label>
+        <input type="text" id="company_url" name="company_url" value="<?php echo esc_attr($company_url); ?>">
+    </div>
     <div class="job-form-row">
         <label for="facility_address">施設住所 <span class="required">*</span></label>
         <input type="text" id="facility_address" name="facility_address" value="<?php echo esc_attr($facility_address); ?>" required>
@@ -1126,31 +1130,404 @@ function render_facility_details_meta_box($post) {
 }
 
 /**
- * 職場環境のメタボックスをレンダリング
+ * 職場環境のメタボックスをレンダリング - 更新版
  */
 function render_workplace_environment_meta_box($post) {
     // nonce フィールドを作成
     wp_nonce_field('save_workplace_environment', 'workplace_environment_nonce');
     
-    // 現在のカスタムフィールド値を取得
+    // 既存のデータを取得
     $daily_schedule = get_post_meta($post->ID, 'daily_schedule', true);
     $staff_voices = get_post_meta($post->ID, 'staff_voices', true);
     
-    // フォームを表示
+    // 新形式のデータ
+    $daily_schedule_items = get_post_meta($post->ID, 'daily_schedule_items', true);
+    $staff_voice_items = get_post_meta($post->ID, 'staff_voice_items', true);
+    
+    // JavaScript とスタイルを追加
     ?>
-    <div class="job-form-row">
-        <label for="daily_schedule">仕事の一日の流れ</label>
-        <textarea id="daily_schedule" name="daily_schedule" rows="8"><?php echo esc_textarea($daily_schedule); ?></textarea>
-        <p class="description">例：9:00 出勤・朝礼、9:30 午前の業務開始、12:00 お昼休憩 など時間ごとの業務内容</p>
+    <style>
+    .schedule-items, .voice-items {
+        margin-bottom: 15px;
+    }
+    .schedule-item, .voice-item {
+        border: 1px solid #ddd;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: #f9f9f9;
+        position: relative;
+    }
+    .schedule-row, .voice-row {
+        margin-bottom: 10px;
+    }
+    .remove-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        color: red;
+        cursor: pointer;
+    }
+    .image-preview {
+        max-width: 100px;
+        max-height: 100px;
+        margin-top: 5px;
+    }
+    </style>
+    
+    <!-- 旧フォーマットのフィールド（バックアップとして保持） -->
+    <div style="display: none;">
+        <div class="job-form-row">
+            <label for="daily_schedule">一日の流れ（旧形式）</label>
+            <textarea id="daily_schedule" name="daily_schedule" rows="8"><?php echo esc_textarea($daily_schedule); ?></textarea>
+        </div>
+        
+        <div class="job-form-row">
+            <label for="staff_voices">職員の声（旧形式）</label>
+            <textarea id="staff_voices" name="staff_voices" rows="8"><?php echo esc_textarea($staff_voices); ?></textarea>
+        </div>
     </div>
     
-    <div class="job-form-row">
-        <label for="staff_voices">職員の声</label>
-        <textarea id="staff_voices" name="staff_voices" rows="8"><?php echo esc_textarea($staff_voices); ?></textarea>
-        <p class="description">実際に働いているスタッフの声を入力（職種、勤続年数、コメントなど）</p>
+    <!-- 新フォーマットの一日の流れ -->
+    <div class="workplace-section">
+        <h4>仕事の一日の流れ</h4>
+        <div id="schedule-container" class="schedule-items">
+            <?php
+            if (is_array($daily_schedule_items) && !empty($daily_schedule_items)) {
+                foreach ($daily_schedule_items as $index => $item) {
+                    ?>
+                    <div class="schedule-item">
+                        <span class="remove-btn" onclick="removeScheduleItem(this)">✕</span>
+                        <div class="schedule-row">
+                            <label>時間:</label>
+                            <input type="text" name="daily_schedule_time[]" value="<?php echo esc_attr($item['time']); ?>" placeholder="9:00" style="width: 100px;">
+                        </div>
+                        <div class="schedule-row">
+                            <label>タイトル:</label>
+                            <input type="text" name="daily_schedule_title[]" value="<?php echo esc_attr($item['title']); ?>" placeholder="出社・朝礼" style="width: 250px;">
+                        </div>
+                        <div class="schedule-row">
+                            <label>詳細:</label>
+                            <textarea name="daily_schedule_description[]" rows="3" style="width: 100%;"><?php echo esc_textarea($item['description']); ?></textarea>
+                        </div>
+                    </div>
+                    <?php
+                }
+            } else {
+                // 空のテンプレート
+                ?>
+                <div class="schedule-item">
+                    <span class="remove-btn" onclick="removeScheduleItem(this)">✕</span>
+                    <div class="schedule-row">
+                        <label>時間:</label>
+                        <input type="text" name="daily_schedule_time[]" placeholder="9:00" style="width: 100px;">
+                    </div>
+                    <div class="schedule-row">
+                        <label>タイトル:</label>
+                        <input type="text" name="daily_schedule_title[]" placeholder="出社・朝礼" style="width: 250px;">
+                    </div>
+                    <div class="schedule-row">
+                        <label>詳細:</label>
+                        <textarea name="daily_schedule_description[]" rows="3" style="width: 100%;"></textarea>
+                    </div>
+                </div>
+                <?php
+            }
+            ?>
+        </div>
+        <button type="button" class="button" onclick="addScheduleItem()">時間枠を追加</button>
     </div>
+    
+    <!-- 新フォーマットの職員の声 -->
+    <div class="workplace-section" style="margin-top: 20px;">
+        <h4>職員の声</h4>
+        <div id="voice-container" class="voice-items">
+            <?php
+            if (is_array($staff_voice_items) && !empty($staff_voice_items)) {
+                foreach ($staff_voice_items as $index => $item) {
+                    $image_url = '';
+                    if (!empty($item['image_id'])) {
+                        $image_url = wp_get_attachment_url($item['image_id']);
+                    }
+                    ?>
+                    <div class="voice-item">
+                        <span class="remove-btn" onclick="removeVoiceItem(this)">✕</span>
+                        <div class="voice-row">
+                            <label>サムネイル:</label>
+                            <input type="hidden" name="staff_voice_image[]" value="<?php echo esc_attr($item['image_id']); ?>" class="voice-image-id">
+                            <button type="button" class="button upload-image" onclick="uploadVoiceImage(this)">画像を選択</button>
+                            <button type="button" class="button remove-image" onclick="removeVoiceImage(this)" <?php echo empty($image_url) ? 'style="display:none;"' : ''; ?>>画像を削除</button>
+                            <div class="image-preview-container">
+                                <?php if (!empty($image_url)): ?>
+                                <img src="<?php echo esc_url($image_url); ?>" alt="" class="image-preview">
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="voice-row">
+                            <label>職種:</label>
+                            <input type="text" name="staff_voice_role[]" value="<?php echo esc_attr($item['role']); ?>" placeholder="保育士" style="width: 250px;">
+                        </div>
+                        <div class="voice-row">
+                            <label>勤続年数:</label>
+                            <input type="text" name="staff_voice_years[]" value="<?php echo esc_attr($item['years']); ?>" placeholder="3年目" style="width: 100px;">
+                        </div>
+                        <div class="voice-row">
+                            <label>コメント:</label>
+                            <textarea name="staff_voice_comment[]" rows="4" style="width: 100%;"><?php echo esc_textarea($item['comment']); ?></textarea>
+                        </div>
+                    </div>
+                    <?php
+                }
+            } else {
+                // 空のテンプレート
+                ?>
+                <div class="voice-item">
+                    <span class="remove-btn" onclick="removeVoiceItem(this)">✕</span>
+                    <div class="voice-row">
+                        <label>サムネイル:</label>
+                        <input type="hidden" name="staff_voice_image[]" value="" class="voice-image-id">
+                        <button type="button" class="button upload-image" onclick="uploadVoiceImage(this)">画像を選択</button>
+                        <button type="button" class="button remove-image" onclick="removeVoiceImage(this)" style="display:none;">画像を削除</button>
+                        <div class="image-preview-container"></div>
+                    </div>
+                    <div class="voice-row">
+                        <label>職種:</label>
+                        <input type="text" name="staff_voice_role[]" placeholder="保育士" style="width: 250px;">
+                    </div>
+                    <div class="voice-row">
+                        <label>勤続年数:</label>
+                        <input type="text" name="staff_voice_years[]" placeholder="3年目" style="width: 100px;">
+                    </div>
+                    <div class="voice-row">
+                        <label>コメント:</label>
+                        <textarea name="staff_voice_comment[]" rows="4" style="width: 100%;"></textarea>
+                    </div>
+                </div>
+                <?php
+            }
+            ?>
+        </div>
+        <button type="button" class="button" onclick="addVoiceItem()">職員の声を追加</button>
+    </div>
+    
+    <script>
+    // 一日の流れを追加
+    function addScheduleItem() {
+        var template = document.querySelector('#schedule-container .schedule-item:first-child').cloneNode(true);
+        // 入力内容をクリア
+        template.querySelectorAll('input, textarea').forEach(function(el) {
+            el.value = '';
+        });
+        document.getElementById('schedule-container').appendChild(template);
+    }
+    
+    // 一日の流れを削除
+    function removeScheduleItem(button) {
+        var container = document.getElementById('schedule-container');
+        if (container.children.length > 1) {
+            button.parentNode.remove();
+        } else {
+            alert('少なくとも1つの項目が必要です');
+        }
+    }
+    
+    // 職員の声を追加
+    function addVoiceItem() {
+        var template = document.querySelector('#voice-container .voice-item:first-child').cloneNode(true);
+        // 入力内容をクリア
+        template.querySelectorAll('input, textarea').forEach(function(el) {
+            el.value = '';
+        });
+        template.querySelector('.image-preview-container').innerHTML = '';
+        template.querySelector('.remove-image').style.display = 'none';
+        document.getElementById('voice-container').appendChild(template);
+    }
+    
+    // 職員の声を削除
+    function removeVoiceItem(button) {
+        var container = document.getElementById('voice-container');
+        if (container.children.length > 1) {
+            button.parentNode.remove();
+        } else {
+            alert('少なくとも1つの項目が必要です');
+        }
+    }
+    
+    // 職員画像をアップロード
+    function uploadVoiceImage(button) {
+        var frame = wp.media({
+            title: '職員の声の画像を選択',
+            button: {
+                text: '画像を選択'
+            },
+            multiple: false
+        });
+        
+        frame.on('select', function() {
+            var attachment = frame.state().get('selection').first().toJSON();
+            var container = button.closest('.voice-item');
+            var imageId = container.querySelector('.voice-image-id');
+            var previewContainer = container.querySelector('.image-preview-container');
+            var removeButton = container.querySelector('.remove-image');
+            
+            imageId.value = attachment.id;
+            previewContainer.innerHTML = '<img src="' + attachment.url + '" alt="" class="image-preview">';
+            removeButton.style.display = 'inline-block';
+        });
+        
+        frame.open();
+    }
+    
+    // 職員画像を削除
+    function removeVoiceImage(button) {
+        var container = button.closest('.voice-item');
+        var imageId = container.querySelector('.voice-image-id');
+        var previewContainer = container.querySelector('.image-preview-container');
+        
+        imageId.value = '';
+        previewContainer.innerHTML = '';
+        button.style.display = 'none';
+    }
+    </script>
     <?php
 }
+
+/**
+ * 管理画面と前面の編集ページで一貫したデータ構造を使用するための修正
+ */
+function save_workplace_environment_data($post_id) {
+    // すでにカスタムフィールドを保存する関数が実行されている場合は終了
+    if (did_action('save_post_' . get_post_type($post_id)) > 1) {
+        return;
+    }
+    
+    // 自動保存の場合は何もしない
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+    
+    // 権限チェック
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
+    
+    // nonceチェック
+    if (!isset($_POST['workplace_environment_nonce']) || 
+        !wp_verify_nonce($_POST['workplace_environment_nonce'], 'save_workplace_environment')) {
+        return;
+    }
+    
+    // 旧形式のフィールドも保存（互換性のため）
+    if (isset($_POST['daily_schedule'])) {
+        update_post_meta($post_id, 'daily_schedule', wp_kses_post($_POST['daily_schedule']));
+    }
+    
+    if (isset($_POST['staff_voices'])) {
+        update_post_meta($post_id, 'staff_voices', wp_kses_post($_POST['staff_voices']));
+    }
+    
+    // 新形式の一日の流れデータ（配列形式）
+    if (isset($_POST['daily_schedule_time']) && is_array($_POST['daily_schedule_time'])) {
+        $schedule_items = array();
+        $count = count($_POST['daily_schedule_time']);
+        
+        for ($i = 0; $i < $count; $i++) {
+            if (!empty($_POST['daily_schedule_time'][$i])) {
+                $schedule_items[] = array(
+                    'time' => sanitize_text_field($_POST['daily_schedule_time'][$i]),
+                    'title' => sanitize_text_field($_POST['daily_schedule_title'][$i]),
+                    'description' => wp_kses_post($_POST['daily_schedule_description'][$i])
+                );
+            }
+        }
+        
+        update_post_meta($post_id, 'daily_schedule_items', $schedule_items);
+    }
+    
+    // 新形式の職員の声データ（配列形式）
+    if (isset($_POST['staff_voice_role']) && is_array($_POST['staff_voice_role'])) {
+        $voice_items = array();
+        $count = count($_POST['staff_voice_role']);
+        
+        for ($i = 0; $i < $count; $i++) {
+            if (!empty($_POST['staff_voice_role'][$i])) {
+                $voice_items[] = array(
+                    'image_id' => intval($_POST['staff_voice_image'][$i]),
+                    'role' => sanitize_text_field($_POST['staff_voice_role'][$i]),
+                    'years' => sanitize_text_field($_POST['staff_voice_years'][$i]),
+                    'comment' => wp_kses_post($_POST['staff_voice_comment'][$i])
+                );
+            }
+        }
+        
+        update_post_meta($post_id, 'staff_voice_items', $voice_items);
+    }
+}
+add_action('save_post_job', 'save_workplace_environment_data', 20);
+
+/**
+ * 管理画面メディア関連のスクリプト読み込み
+ */
+function load_admin_media_scripts($hook) {
+    global $post;
+    
+    // 投稿編集画面のみに読み込み
+    if ($hook == 'post.php' || $hook == 'post-new.php') {
+        if (isset($post) && $post->post_type == 'job') {
+            wp_enqueue_media();
+        }
+    }
+}
+add_action('admin_enqueue_scripts', 'load_admin_media_scripts');
+
+/**
+ * フロントエンドと管理画面の保存処理を統一するためのデータ同期
+ */
+function sync_workplace_environment_data($post_id) {
+    // 通常の保存処理が完了した後に実行
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+    
+    // 該当の投稿タイプのみ処理
+    if (get_post_type($post_id) !== 'job') {
+        return;
+    }
+    
+    // 新形式のデータが存在するか確認
+    $daily_schedule_items = get_post_meta($post_id, 'daily_schedule_items', true);
+    $staff_voice_items = get_post_meta($post_id, 'staff_voice_items', true);
+    
+    // 旧形式のデータを取得
+    $daily_schedule = get_post_meta($post_id, 'daily_schedule', true);
+    $staff_voices = get_post_meta($post_id, 'staff_voices', true);
+    
+    // 新形式のデータが存在しない場合、旧形式から変換を試みる
+    if (empty($daily_schedule_items) && !empty($daily_schedule)) {
+        // 簡易的な変換処理（実際のデータ構造によって調整が必要）
+        $schedule_items = array(
+            array(
+                'time' => '9:00',
+                'title' => '業務開始',
+                'description' => $daily_schedule
+            )
+        );
+        update_post_meta($post_id, 'daily_schedule_items', $schedule_items);
+    }
+    
+    if (empty($staff_voice_items) && !empty($staff_voices)) {
+        // 簡易的な変換処理（実際のデータ構造によって調整が必要）
+        $voice_items = array(
+            array(
+                'image_id' => 0,
+                'role' => '職員',
+                'years' => '勤続期間',
+                'comment' => $staff_voices
+            )
+        );
+        update_post_meta($post_id, 'staff_voice_items', $voice_items);
+    }
+}
+add_action('save_post', 'sync_workplace_environment_data', 30);
 
 /**
  * カスタムフィールドのデータを保存
@@ -3782,3 +4159,4 @@ function frontend_delete_job() {
         wp_send_json_error('求人の削除に失敗しました。');
     }
 }
+
