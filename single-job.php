@@ -522,24 +522,15 @@ $show_info_tabs = $show_job_info || $show_workplace_info || $show_facility_info;
                     </tr>
                     <?php endif; ?>
                     <?php if (!empty($application_process)) : ?>
-                    <tr>
-                        <th>選考プロセス</th>
-                        <td>
-                            <ul class="checklist">
-                                <?php 
-                                $process_items = explode("\n", $application_process);
-                                foreach ($process_items as $item) :
-                                    if (trim($item) !== '') :
-                                ?>
-                                    <li><?php echo esc_html(trim($item)); ?></li>
-                                <?php 
-                                    endif;
-                                endforeach; 
-                                ?>
-                            </ul>
-                        </td>
-                    </tr>
-                    <?php endif; ?>
+<tr>
+    <th>選考プロセス</th>
+    <td>
+           <?php 
+        echo nl2br(esc_html($application_process));
+        ?>
+    </td>
+</tr>
+<?php endif; ?>
                 </table>
                 
                 <!-- 求人タグ - 修正済み -->
@@ -677,28 +668,28 @@ $show_info_tabs = $show_job_info || $show_workplace_info || $show_facility_info;
                    </tr>
                    <?php endif; ?>
                    <?php if (!empty($capacity)) : ?>
-                   <tr>
-                       <th>利用定員数</th>
-                       <td>定員：<?php echo esc_html($capacity); ?></td>
-                   </tr>
-                   <?php endif; ?>
+<tr>
+    <th>利用定員数</th>
+    <td><?php echo esc_html($capacity); ?></td>
+</tr>
+<?php endif; ?>
                    <?php if (!empty($staff_composition)) : ?>
-                   <tr>
-                       <th>スタッフ構成</th>
-                       <td class="facility-staff">
-                           <?php 
-                           $staff_items = explode("\n", $staff_composition);
-                           foreach ($staff_items as $staff) :
-                               if (trim($staff) !== '') :
-                           ?>
-                               <div>・<?php echo esc_html(trim($staff)); ?></div>
-                           <?php 
-                               endif;
-                           endforeach;
-                           ?>
-                       </td>
-                   </tr>
-                   <?php endif; ?>
+<tr>
+    <th>スタッフ構成</th>
+    <td class="facility-staff">
+        <?php 
+        $staff_items = explode("\n", $staff_composition);
+        foreach ($staff_items as $staff) :
+            if (trim($staff) !== '') :
+        ?>
+            <div><?php echo esc_html(trim($staff)); ?></div>
+        <?php 
+            endif;
+        endforeach;
+        ?>
+    </td>
+</tr>
+<?php endif; ?>
                    <?php if (!empty($facility_tel)) : ?>
                    <tr>
                        <th>電話番号</th>

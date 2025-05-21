@@ -791,7 +791,7 @@ add_action('admin_post_publish_job', 'set_job_to_publish');
 add_action('admin_post_delete_job', 'delete_job_post');
 
 /**
- * 求人を下書きに変更
+ * 求人ステータス変更・削除用のアクション処理の修正版
  */
 function set_job_to_draft() {
     if (!isset($_GET['job_id']) || !isset($_GET['_wpnonce'])) {
@@ -805,10 +805,18 @@ function set_job_to_draft() {
         wp_die('セキュリティチェックに失敗しました。');
     }
     
-    // 権限チェック
+    // 権限チェック - 加盟教室ユーザー用に修正
     $job_post = get_post($job_id);
-    if (!$job_post || $job_post->post_type !== 'job' || 
-        ($job_post->post_author != get_current_user_id() && !current_user_can('administrator'))) {
+    if (!$job_post || $job_post->post_type !== 'job') {
+        wp_die('この求人が見つかりません。');
+    }
+    
+    // agencyユーザーと管理者の両方に権限を与える
+    $current_user_id = get_current_user_id();
+    $current_user = wp_get_current_user();
+    $is_agency = in_array('agency', (array)$current_user->roles);
+    
+    if ($job_post->post_author != $current_user_id && !current_user_can('administrator')) {
         wp_die('この求人を編集する権限がありません。');
     }
     
@@ -824,7 +832,7 @@ function set_job_to_draft() {
 }
 
 /**
- * 求人を公開に変更
+ * 求人を公開に変更 - 修正版
  */
 function set_job_to_publish() {
     if (!isset($_GET['job_id']) || !isset($_GET['_wpnonce'])) {
@@ -838,10 +846,18 @@ function set_job_to_publish() {
         wp_die('セキュリティチェックに失敗しました。');
     }
     
-    // 権限チェック
+    // 権限チェック - 加盟教室ユーザー用に修正
     $job_post = get_post($job_id);
-    if (!$job_post || $job_post->post_type !== 'job' || 
-        ($job_post->post_author != get_current_user_id() && !current_user_can('administrator'))) {
+    if (!$job_post || $job_post->post_type !== 'job') {
+        wp_die('この求人が見つかりません。');
+    }
+    
+    // agencyユーザーと管理者の両方に権限を与える
+    $current_user_id = get_current_user_id();
+    $current_user = wp_get_current_user();
+    $is_agency = in_array('agency', (array)$current_user->roles);
+    
+    if ($job_post->post_author != $current_user_id && !current_user_can('administrator')) {
         wp_die('この求人を編集する権限がありません。');
     }
     
@@ -857,7 +873,7 @@ function set_job_to_publish() {
 }
 
 /**
- * 求人を削除
+ * 求人を削除 - 修正版
  */
 function delete_job_post() {
     if (!isset($_GET['job_id']) || !isset($_GET['_wpnonce'])) {
@@ -871,10 +887,18 @@ function delete_job_post() {
         wp_die('セキュリティチェックに失敗しました。');
     }
     
-    // 権限チェック
+    // 権限チェック - 加盟教室ユーザー用に修正
     $job_post = get_post($job_id);
-    if (!$job_post || $job_post->post_type !== 'job' || 
-        ($job_post->post_author != get_current_user_id() && !current_user_can('administrator'))) {
+    if (!$job_post || $job_post->post_type !== 'job') {
+        wp_die('この求人が見つかりません。');
+    }
+    
+    // agencyユーザーと管理者の両方に権限を与える
+    $current_user_id = get_current_user_id();
+    $current_user = wp_get_current_user();
+    $is_agency = in_array('agency', (array)$current_user->roles);
+    
+    if ($job_post->post_author != $current_user_id && !current_user_can('administrator')) {
         wp_die('この求人を削除する権限がありません。');
     }
     
@@ -885,9 +909,34 @@ function delete_job_post() {
     wp_redirect(home_url('/job-list/?status=deleted'));
     exit;
 }
-
-
-
+/**
+ * 加盟教室(agency)ロールに必要な権限を追加
+ */
+function add_capabilities_to_agency_role() {
+    // agency ロールを取得
+    $role = get_role('agency');
+    
+    if ($role) {
+        // 編集・削除関連の権限を追加
+        $role->add_cap('edit_posts', true);
+        $role->add_cap('delete_posts', true);
+        $role->add_cap('publish_posts', true);
+        $role->add_cap('edit_published_posts', true);
+        $role->add_cap('delete_published_posts', true);
+        
+        // job カスタム投稿タイプ用の権限
+        $role->add_cap('edit_job', true);
+        $role->add_cap('read_job', true);
+        $role->add_cap('delete_job', true);
+        $role->add_cap('edit_jobs', true);
+        $role->add_cap('edit_others_jobs', false); // 他のユーザーの投稿は編集不可
+        $role->add_cap('publish_jobs', true);
+        $role->add_cap('read_private_jobs', false); // プライベート投稿は読み取り不可
+        $role->add_cap('edit_published_jobs', true);
+        $role->add_cap('delete_published_jobs', true);
+    }
+}
+add_action('init', 'add_capabilities_to_agency_role', 10);
 /**
  * 求人用カスタムフィールドとメタボックスの設定
  */
@@ -3601,3 +3650,135 @@ function load_media_js_for_job_pages() {
     }
 }
 add_action('wp_enqueue_scripts', 'load_media_js_for_job_pages', 20);
+
+/**
+ * フロントエンド用の求人ステータス変更・削除処理
+ */
+
+// アクションフックの登録
+add_action('wp_ajax_frontend_draft_job', 'frontend_set_job_to_draft');
+add_action('wp_ajax_frontend_publish_job', 'frontend_set_job_to_publish');
+add_action('wp_ajax_frontend_delete_job', 'frontend_delete_job');
+
+/**
+ * 求人を下書きに変更（フロントエンド用）
+ */
+function frontend_set_job_to_draft() {
+    if (!isset($_POST['job_id']) || !isset($_POST['nonce'])) {
+        wp_send_json_error('無効なリクエストです。');
+    }
+    
+    $job_id = intval($_POST['job_id']);
+    
+    // ナンス検証
+    if (!wp_verify_nonce($_POST['nonce'], 'frontend_job_action')) {
+        wp_send_json_error('セキュリティチェックに失敗しました。');
+    }
+    
+    // 権限チェック
+    $job_post = get_post($job_id);
+    if (!$job_post || $job_post->post_type !== 'job') {
+        wp_send_json_error('求人が見つかりません。');
+    }
+    
+    $current_user_id = get_current_user_id();
+    if ($job_post->post_author != $current_user_id && !current_user_can('administrator')) {
+        wp_send_json_error('この求人を編集する権限がありません。');
+    }
+    
+    // 下書きに変更
+    $result = wp_update_post(array(
+        'ID' => $job_id,
+        'post_status' => 'draft'
+    ));
+    
+    if ($result) {
+        wp_send_json_success(array(
+            'message' => '求人を下書きに変更しました。',
+            'redirect' => home_url('/job-list/?status=drafted')
+        ));
+    } else {
+        wp_send_json_error('求人の更新に失敗しました。');
+    }
+}
+
+/**
+ * 求人を公開に変更（フロントエンド用）
+ */
+function frontend_set_job_to_publish() {
+    if (!isset($_POST['job_id']) || !isset($_POST['nonce'])) {
+        wp_send_json_error('無効なリクエストです。');
+    }
+    
+    $job_id = intval($_POST['job_id']);
+    
+    // ナンス検証
+    if (!wp_verify_nonce($_POST['nonce'], 'frontend_job_action')) {
+        wp_send_json_error('セキュリティチェックに失敗しました。');
+    }
+    
+    // 権限チェック
+    $job_post = get_post($job_id);
+    if (!$job_post || $job_post->post_type !== 'job') {
+        wp_send_json_error('求人が見つかりません。');
+    }
+    
+    $current_user_id = get_current_user_id();
+    if ($job_post->post_author != $current_user_id && !current_user_can('administrator')) {
+        wp_send_json_error('この求人を編集する権限がありません。');
+    }
+    
+    // 公開に変更
+    $result = wp_update_post(array(
+        'ID' => $job_id,
+        'post_status' => 'publish'
+    ));
+    
+    if ($result) {
+        wp_send_json_success(array(
+            'message' => '求人を公開しました。',
+            'redirect' => home_url('/job-list/?status=published')
+        ));
+    } else {
+        wp_send_json_error('求人の更新に失敗しました。');
+    }
+}
+
+/**
+ * 求人を削除（フロントエンド用）
+ */
+function frontend_delete_job() {
+    if (!isset($_POST['job_id']) || !isset($_POST['nonce'])) {
+        wp_send_json_error('無効なリクエストです。');
+    }
+    
+    $job_id = intval($_POST['job_id']);
+    
+    // ナンス検証
+    if (!wp_verify_nonce($_POST['nonce'], 'frontend_job_action')) {
+        wp_send_json_error('セキュリティチェックに失敗しました。');
+    }
+    
+    // 権限チェック
+    $job_post = get_post($job_id);
+    if (!$job_post || $job_post->post_type !== 'job') {
+        wp_send_json_error('求人が見つかりません。');
+    }
+    
+    $current_user_id = get_current_user_id();
+    if ($job_post->post_author != $current_user_id && !current_user_can('administrator')) {
+        wp_send_json_error('この求人を削除する権限がありません。');
+    }
+    
+    // 削除
+    $result = wp_trash_post($job_id);
+    
+    if ($result) {
+        wp_send_json_success(array(
+            'message' => '求人を削除しました。',
+            'redirect' => home_url('/job-list/?status=deleted')
+        ));
+    } else {
+        wp_send_json_error('求人の削除に失敗しました。');
+    }
+}
